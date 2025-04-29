@@ -85,4 +85,5 @@ st.caption("\u23f0 Data auto-refreshes manually (hit Rerun or refresh browser)")
 
 # Footer
 st.markdown("---")
-st.caption("Built by ChatGPT + You | Trading smarter, not harder. \ud83d\ude80")
+st.caption("Built by ChatGPT + You | Trading smarter, not harder. 🚀")
+

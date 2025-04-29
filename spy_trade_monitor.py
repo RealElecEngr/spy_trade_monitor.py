@@ -74,7 +74,7 @@ st.metric(label="SPY Spot Price", value=f"${spy_price:.2f}")
 st.metric(label="VIX (Volatility Index)", value=f"{vix_value:.2f}")
 st.metric(label="Your SPY Call Price", value=f"${call_price:.2f}", delta=f"{call_pct_change:.1f}% vs entry")
 
-st.header("\ud83d\udd17 Action Recommendation")
+st.header("🔗 Action Recommendation")
 st.success(action) if "✅" in action else st.error(action)
 
 st.caption("\u23f0 Data auto-refreshes manually (hit Rerun or refresh browser)")

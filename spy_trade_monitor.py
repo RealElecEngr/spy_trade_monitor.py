@@ -15,7 +15,20 @@ def fetch_data():
     vix = yf.Ticker("^VIX")
     call = yf.Ticker(CALL_TICKER)
 
-    spy_price = spy.history(period="1d")["Close"].iloc[-1]
+    spy_price = spy.history(period="1d")["Close"].dropna().iloc[-1]
+    vix_value = vix.history(period="1d")["Close"].dropna().iloc[-1]
+
+    try:
+        hist = call.history(period="5d")
+        if hist.empty or "Close" not in hist.columns or hist["Close"].dropna().empty:
+            call_price = float("nan")
+        else:
+            call_price = hist["Close"].dropna().iloc[-1]
+    except Exception as e:
+        call_price = float("nan")
+
+    return spy_price, vix_value, call_price
+
     vix_value = vix.history(period="1d")["Close"].iloc[-1]
     call_price = call.history(period="1d")["Close"].iloc[-1]
 
@@ -50,6 +63,10 @@ st.write("Live monitoring for your SPY Jan 2026 $550c position")
 
 with st.spinner('Fetching live data...'):
     spy_price, vix_value, call_price = fetch_data()
+    import math
+if math.isnan(call_price):
+    st.warning("⚠️ Could not fetch recent price data for the SPY call. Data may be delayed or unavailable.")
+
     action, call_pct_change = check_trade(spy_price, vix_value, call_price)
 
 # Show metrics

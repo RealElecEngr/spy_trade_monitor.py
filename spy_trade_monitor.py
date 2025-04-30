@@ -18,21 +18,21 @@ def fetch_data():
     spy_price = spy.history(period="1d")["Close"].dropna().iloc[-1]
     vix_value = vix.history(period="1d")["Close"].dropna().iloc[-1]
 
-    try:
-        hist = call.history(period="5d")
-        if hist.empty or "Close" not in hist.columns or hist["Close"].dropna().empty:
-            call_price = float("nan")
-        else:
-            call_price = hist["Close"].dropna().iloc[-1]
-    except Exception as e:
+    # Pull last 2 closing prices for the call option
+    hist = call.history(period="5d")
+    closes = hist["Close"].dropna()
+
+    if len(closes) == 0:
         call_price = float("nan")
+        is_fallback = False
+    elif len(closes) == 1:
+        call_price = closes.iloc[0]
+        is_fallback = True
+    else:
+        call_price = closes.iloc[-1]
+        is_fallback = False
 
-    return spy_price, vix_value, call_price
-
-    vix_value = vix.history(period="1d")["Close"].iloc[-1]
-    call_price = call.history(period="1d")["Close"].iloc[-1]
-
-    return spy_price, vix_value, call_price
+    return spy_price, vix_value, call_price, is_fallback
 
 # === Trading Logic ===
 def check_trade(spy_price, vix_value, call_price):
@@ -61,11 +61,16 @@ st.title("SPY Call Monitoring Dashboard 🚀")
 
 st.write("Live monitoring for your SPY Jan 2026 $550c position")
 
+import math
+
 with st.spinner('Fetching live data...'):
-    spy_price, vix_value, call_price = fetch_data()
-    import math
+    spy_price, vix_value, call_price, is_fallback = fetch_data()
+
 if math.isnan(call_price):
     st.warning("⚠️ Could not fetch recent price data for the SPY call. Data may be delayed or unavailable.")
+else:
+    if is_fallback:
+        st.info("ℹ️ Using previous day's close for SPY call price.")
 
     action, call_pct_change = check_trade(spy_price, vix_value, call_price)
 

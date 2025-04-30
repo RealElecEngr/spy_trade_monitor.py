@@ -15,7 +15,7 @@ def fetch_data():
         spy = yf.Ticker("SPY")
         spy_price = spy.history(period="1d")["Close"].dropna().iloc[-1]
     except Exception as e:
-        try:
+    try:
         # Pull last 2 closing prices for the call option
         hist = call.history(period="5d")
         closes = hist["Close"].dropna()

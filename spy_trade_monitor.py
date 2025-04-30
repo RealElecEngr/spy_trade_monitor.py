@@ -11,23 +11,39 @@ ENTRY_PRICE = 44.78  # Your original cost basis
 
 # === Fetch Live Data ===
 def fetch_data():
-    spy = yf.Ticker("SPY")
-    vix = yf.Ticker("^VIX")
-    call = yf.Ticker(CALL_TICKER)
+    try:
+        spy = yf.Ticker("SPY")
+        spy_price = spy.history(period="1d")["Close"].dropna().iloc[-1]
+    except Exception as e:
+        spy_price = float("nan")
+        st.error("❌ Failed to fetch SPY price. Possibly rate limited.")
 
-    spy_price = spy.history(period="1d")["Close"].dropna().iloc[-1]
-    vix_value = vix.history(period="1d")["Close"].dropna().iloc[-1]
+    try:
+        vix = yf.Ticker("^VIX")
+        vix_value = vix.history(period="1d")["Close"].dropna().iloc[-1]
+    except Exception as e:
+        vix_value = float("nan")
+        st.error("❌ Failed to fetch VIX. Possibly rate limited.")
 
-    # Pull last 2 closing prices for the call option
-    hist = call.history(period="5d")
-    closes = hist["Close"].dropna()
-
-    if len(closes) == 0:
+    try:
+        call = yf.Ticker(CALL_TICKER)
+        hist = call.history(period="5d")
+        closes = hist["Close"].dropna()
+        if len(closes) == 0:
+            call_price = float("nan")
+            is_fallback = False
+        elif len(closes) == 1:
+            call_price = closes.iloc[0]
+            is_fallback = True
+        else:
+            call_price = closes.iloc[-1]
+            is_fallback = False
+    except Exception as e:
         call_price = float("nan")
         is_fallback = False
-    elif len(closes) == 1:
-        call_price = closes.iloc[0]
-        is_fallback = True
+        st.error("❌ Failed to fetch call option price. Possibly rate limited.")
+
+    return spy_price, vix_value, call_price, is_fallback
     else:
         call_price = closes.iloc[-1]
         is_fallback = False

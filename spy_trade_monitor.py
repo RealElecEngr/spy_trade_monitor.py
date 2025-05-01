@@ -52,7 +52,7 @@ if error:
     vix_value = st.number_input("Enter VIX manually:", min_value=0.0)
 
 # === Manual Option Price Input ===
-call_price = st.number_input("🔧 Enter your SPY Call Price ($):", min_value=0.01, value=0.0, step=0.01)
+call_price = st.number_input("🔧 Enter your SPY Call Price ($):", min_value=0.01, value=0.01, step=0.01)
 
 # === Proceed if call price is valid ===
 if call_price > 0 and spy_price and vix_value:

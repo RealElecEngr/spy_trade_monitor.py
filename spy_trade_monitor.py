@@ -1,49 +1,46 @@
-# --- Requirements ---
 # pip install streamlit yahooquery pandas
 
 import streamlit as st
 from yahooquery import Ticker
 import pandas as pd
+import time
 import math
+from datetime import datetime
 
 # === Settings ===
 CALL_TICKER = 'SPY240117C00550000'  # SPY Jan 17, 2026 $550 Call
-ENTRY_PRICE = 44.78  # Cost basis for your call
+ENTRY_PRICE = 44.78  # Your cost basis
 
-# === Fetch Data Using yahooquery ===
+st.set_page_config(page_title="SPY Call Trade Monitor", page_icon="📈", layout="centered")
+st.title("SPY Call Monitoring Dashboard 🚀")
+st.write("Live monitoring for your SPY Jan 2026 $550c position")
+
+# === Helper Functions ===
 def fetch_data():
     try:
-        tickers = Ticker(["SPY", "^VIX", "SPY"])
-        
-        # Get latest SPY and VIX price
-        hist = tickers.history(period="1d")
-        spy_price = hist.loc[("SPY",), "close"].iloc[-1]
-        vix_value = hist.loc[("^VIX",), "close"].iloc[-1]
+        time.sleep(1.5)  # <== THROTTLE to prevent rate-limiting
 
-        # Get the option chain
-        chain = tickers.option_chain
-        calls = chain.get("calls", [])
+        tickers = Ticker(["SPY", "^VIX", CALL_TICKER])
 
-        # Search for your call contract
-        call_data = next((c for c in calls if c["contractSymbol"] == CALL_TICKER), None)
+        spy_price = tickers["SPY"].price["SPY"]["regularMarketPrice"]
+        vix_value = tickers["^VIX"].price["^VIX"]["regularMarketPrice"]
 
-        if call_data and "lastPrice" in call_data:
-            call_price = call_data["lastPrice"]
+        opt_chain = tickers.get_options_data()
+        call_row = opt_chain.loc[CALL_TICKER] if CALL_TICKER in opt_chain.index else None
+
+        if call_row is not None:
+            call_price = call_row["lastPrice"]
             is_fallback = False
         else:
             call_price = float("nan")
             is_fallback = False
 
+        return spy_price, vix_value, call_price, is_fallback, None
+
     except Exception as e:
-        st.error(f"❌ Error during data fetch: {e}")
-        spy_price = float("nan")
-        vix_value = float("nan")
-        call_price = float("nan")
-        is_fallback = False
+        return None, None, float("nan"), False, str(e)
 
-    return spy_price, vix_value, call_price, is_fallback
-
-# === Trade Signal Logic ===
+# === Trading Logic ===
 def check_trade(spy_price, vix_value, call_price):
     call_pct_change = (call_price - ENTRY_PRICE) / ENTRY_PRICE * 100
 
@@ -64,31 +61,45 @@ def check_trade(spy_price, vix_value, call_price):
 
     return action, call_pct_change
 
-# === Streamlit App ===
-st.set_page_config(page_title="SPY Call Monitor", page_icon="📈", layout="centered")
-st.title("SPY Call Monitoring Dashboard 🚀")
-st.write("Live monitoring for your SPY Jan 2026 $550c position")
+# === App Logic ===
+start_time = time.time()
 
 with st.spinner("Fetching live data..."):
-    spy_price, vix_value, call_price, is_fallback = fetch_data()
+    spy_price, vix_value, call_price, is_fallback, error = fetch_data()
 
+# === Handle data fetch errors ===
+if error:
+    st.error(f"❌ Error during data fetch: {error}")
+
+# === Check for missing option price ===
 if math.isnan(call_price):
-    st.error("❌ Failed to fetch SPY call price. Yahoo may be rate limiting or the symbol is incorrect.")
     st.warning("⚠️ Could not fetch recent price for the SPY call option.")
+    if time.time() - start_time > 60:
+        call_price = st.number_input("🔧 Enter SPY Call Price manually ($):", min_value=0.01, value=0.0, step=0.01)
+        if call_price > 0:
+            spy_price = spy_price or st.number_input("Enter SPY spot price manually ($):", min_value=0.0)
+            vix_value = vix_value or st.number_input("Enter VIX manually:", min_value=0.0)
+            is_fallback = True
+        else:
+            st.stop()
+    else:
+        st.info("⏳ Waiting 60 seconds before allowing manual price input.")
+        st.stop()
 else:
     if is_fallback:
-        st.info("ℹ️ Using fallback price for the SPY call.")
+        st.info("ℹ️ Using previous day's close for SPY call price.")
 
-    action, call_pct_change = check_trade(spy_price, vix_value, call_price)
+# === Display Metrics ===
+action, call_pct_change = check_trade(spy_price, vix_value, call_price)
 
-    st.metric(label="SPY Spot Price", value=f"${spy_price:.2f}")
-    st.metric(label="VIX (Volatility Index)", value=f"{vix_value:.2f}")
-    st.metric(label="Your SPY Call Price", value=f"${call_price:.2f}", delta=f"{call_pct_change:.1f}% vs entry")
+st.metric(label="SPY Spot Price", value=f"${spy_price:.2f}")
+st.metric(label="VIX (Volatility Index)", value=f"{vix_value:.2f}")
+st.metric(label="Your SPY Call Price", value=f"${call_price:.2f}", delta=f"{call_pct_change:.1f}% vs entry")
 
-    st.header("🔗 Action Recommendation")
-    st.success(action) if "✅" in action else st.error(action)
+# === Recommendation ===
+st.header("🔗 Action Recommendation")
+st.success(action) if "✅" in action else st.error(action)
 
 st.caption("⏱️ Data refreshes manually. Click Rerun or refresh browser.")
-
 st.markdown("---")
 st.caption("Built by ChatGPT + You | Trading smarter, not harder. 🚀")
